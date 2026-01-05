@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🧸 LITTLE NOOK POS (Pro 修正版)</title>
+    <title>96cd.co POS (Pro 修正版)</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -47,11 +47,22 @@
         .clear-log-btn { background: none; border: 1px solid #b0a496; color: #b0a496; font-size: 0.75em; padding: 2px 8px; border-radius: 5px; cursor: pointer; }
         .del-cat-btn { background: #ff4d4d; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 0.8em; margin-left: 10px; }
         .edit-cat-btn { background: #3182ce; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 0.8em; margin-left: 10px; }
+        
+        /* 修正今日即時紀錄的尺寸與滾動 */
+        .log-container {
+            max-height: 150px; 
+            overflow-y: auto; 
+            font-size: 0.85em; 
+            background: #fafafa; 
+            padding: 8px; 
+            border-radius: 8px;
+            border: 1px solid #f0e6dd;
+        }
     </style>
 </head>
 <body>
 
-<header>🧸 LITTLE NOOK POS (Pro 修正版)</header>
+<header>96cd.co</header>
 <div class="nav-bar">
     <div id="navbar" style="display:flex; gap:10px;"></div>
     <button class="sync-btn" onclick="syncOfflineData()">🔄 離線數據同步</button>
@@ -64,7 +75,7 @@
             <strong>🛒 當前清單</strong>
             <div id="cart-list"></div>
             <div style="margin-top:10px;">
-                <input type="number" id="discount" class="big-input" placeholder="折扣金額" oninput="calc()">
+                <input type="text" id="discount" class="big-input" placeholder="折扣金額" oninput="calc()">
                 <input type="text" id="discount-note" class="small-note" placeholder="折扣原因/備註 (例如: 滿額贈)">
                 <div style="margin-top:5px; display:flex; gap:5px;">
                     <button onclick="addExtraCost()" style="flex:1; padding:8px; background:#fef2f2; border:1px solid #fecaca; color:#b91c1c; border-radius:8px; cursor:pointer; font-size:0.9em; font-weight:bold;">➕ 紀錄額外支出</button>
@@ -75,7 +86,7 @@
                 <button class="pay-btn active" id="btn-cash" onclick="setPay('現金')">💵 現金</button>
                 <button class="pay-btn" id="btn-elec" onclick="setPay('電支')">📱 電支</button>
             </div>
-            <input type="number" id="cash-in" class="big-input" placeholder="實收金額" oninput="calcChange()"> 
+            <input type="text" id="cash-in" class="big-input" placeholder="實收金額" oninput="calcChange()"> 
             <div style="text-align:right; margin-top:5px; font-size: 1.3em;">找零: <span id="cash-change" style="font-weight:bold; color:red; font-size:1.8em;">0</span></div>
             
             <div style="margin: 10px 0; padding: 10px; background: #fff5eb; border-radius: 10px; border: 1px dashed var(--main-brown);">
@@ -88,9 +99,12 @@
 
             <button onclick="submitOrder()" style="width:100%; padding:20px; margin-top:15px; background:var(--profit-green); color:white; border:none; border-radius:15px; font-weight:bold; font-size:1.6em;">結帳完成</button>
         </div>
-        <div class="card" style="flex:1; font-size: 1em; overflow-y: auto;">
-            <strong>📋 今日即時紀錄</strong>
-            <div id="order-log"></div>
+        
+        <div class="card" style="flex-shrink: 0; padding: 10px;">
+            <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                <strong style="font-size: 0.9em;">📋 今日即時紀錄 (最新10筆)</strong>
+            </div>
+            <div id="order-log" class="log-container"></div>
         </div>
     </div>
 </div>
@@ -170,7 +184,7 @@
         storageBucket: "cd-pos-c4451",
         messagingSenderId: "927849963978",
         appId: "1:927849963978:web:545299fa503129130bef33",
-  measurementId: "G-L14NL0T6S8"
+        measurementId: "G-L14NL0T6S8"
     };
     // --- ⬆️ 請在此處填入您的 Firebase 資訊 ⬆️ ---
 
@@ -247,20 +261,27 @@
         if(document.getElementById('admin-panel').style.display === 'flex') renderAdminTable();
     }
 
+    /* 修整後的紀錄更新邏輯 */
     function updateLog() {
         const logArea = document.getElementById('order-log');
         const today = new Date().toLocaleDateString('zh-TW');
         const todayOrders = orders.filter(o => o.d === today).slice(0, 10);
         
         if(todayOrders.length === 0) {
-            logArea.innerHTML = '<div style="color:#999; padding:10px; text-align:center;">今日尚無交易</div>';
+            logArea.innerHTML = '<div style="color:#999; padding:10px; text-align:center; font-size:0.9em;">今日尚無交易</div>';
             return;
         }
 
         logArea.innerHTML = todayOrders.map(o => `
-            <div style="border-bottom:1px solid #eee; padding:5px 0; font-size:0.9em;">
-                <span style="color:#888;">[${o.t}]</span> <b>$${o.total}</b> (${o.pay})
-                <div style="color:#666; font-size:0.85em;">${o.items.map(i => i.n).join(', ')}</div>
+            <div style="border-bottom:1px solid #eee; padding:6px 0; line-height:1.4;">
+                <div style="display:flex; justify-content: space-between;">
+                    <span style="color:#888; font-family:monospace;">[${o.t}]</span>
+                    <strong style="color:var(--price-red);">$${o.total}</strong>
+                </div>
+                <div style="color:#666; font-size:0.9em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                    <span style="background:#eee; padding:0 4px; border-radius:3px; margin-right:4px;">${o.pay}</span>
+                    ${o.items.map(i => i.n).join(', ')}
+                </div>
             </div>
         `).join('');
     }
